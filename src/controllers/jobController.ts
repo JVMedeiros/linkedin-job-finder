@@ -2,13 +2,10 @@ import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import linkedinService from '../services/linkedinService';
 import { LinkedInJobSearchParams } from '../interfaces/linkedin';
+import console from 'console';
 
 class JobController {
-  /**
-   * Search for jobs based on query parameters
-   */
   async searchJobs(req: Request, res: Response): Promise<void> {
-    // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({ errors: errors.array() });
@@ -16,13 +13,11 @@ class JobController {
     }
 
     try {
-      // Check if user is authenticated
       if (!req.session?.linkedInAccessToken) {
         res.status(401).json({ error: 'Not authenticated. Please log in first.' });
         return;
       }
 
-      // Extract search parameters from query
       const searchParams: LinkedInJobSearchParams = {
         keywords: req.query.keywords as string,
         location: req.query.location as string,
@@ -40,7 +35,6 @@ class JobController {
         title: req.query.title as string
       };
 
-      // Search for jobs using LinkedIn service
       const jobs = await linkedinService.searchJobs(searchParams, req.session.linkedInAccessToken);
       
       res.json(jobs);
@@ -50,12 +44,8 @@ class JobController {
     }
   }
 
-  /**
-   * Get details for a specific job
-   */
   async getJobDetails(req: Request, res: Response): Promise<void> {
     try {
-      // Check if user is authenticated
       if (!req.session?.linkedInAccessToken) {
         res.status(401).json({ error: 'Not authenticated. Please log in first.' });
         return;
@@ -63,7 +53,6 @@ class JobController {
 
       const jobUrn = req.params.id;
       
-      // Get job details using LinkedIn service
       const jobDetails = await linkedinService.getJobDetails(jobUrn, req.session.linkedInAccessToken);
       
       res.json(jobDetails);
