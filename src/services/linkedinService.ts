@@ -19,44 +19,49 @@ class LinkedInService {
   private accessToken: string | null = null;
   private accessTokenExpiry: number = 0;
 
-  /**
-   * Exchange authorization code for an access token
-   * @param authCode Authorization code from LinkedIn OAuth flow
-   * @returns TokenResponse containing access_token and other info
-   */
   async getAccessToken(authCode: string): Promise<LinkedInTokenResponse> {
     try {
-      const response = await http.post(
-        `${LINKEDIN_OAUTH_URL}/accessToken`,
-        new URLSearchParams({
-          grant_type: 'authorization_code',
-          code: authCode,
-          client_id: config.linkedin.clientId,
-          client_secret: config.linkedin.clientSecret,
-          redirect_uri: config.linkedin.redirectUri,
-        }),
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-        }
-      );
-
-      this.accessToken = response.data.access_token;
-      this.accessTokenExpiry = Date.now() + (response.data.expires_in * 1000);
+      return await this.getAccessTokenWithSecret(authCode, config.linkedin.clientSecret);
+    } catch (error: any) {
+      console.log('Erro na tentativa com client secret primário:', error.message);
       
-      return response.data;
-    } catch (error) {
-      console.error('Error getting LinkedIn access token:', error);
-      throw new Error('Failed to obtain LinkedIn access token');
+      if (config.linkedin.secondClientSecret) {
+        try {
+          console.log('Tentando com client secret secundário...');
+          return await this.getAccessTokenWithSecret(authCode, config.linkedin.secondClientSecret);
+        } catch (secondError) {
+          console.error('Erro também com client secret secundário:', secondError);
+          throw new Error('Falha ao obter token de acesso LinkedIn com ambos client secrets');
+        }
+      }
+      
+      throw error;
     }
   }
 
-  /**
-   * Get user profile information from LinkedIn
-   * @param accessToken LinkedIn access token
-   * @returns User profile information
-   */
+  private async getAccessTokenWithSecret(authCode: string, clientSecret: string): Promise<LinkedInTokenResponse> {
+    const response = await http.post(
+      `${LINKEDIN_OAUTH_URL}/accessToken`,
+      new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: authCode,
+        client_id: config.linkedin.clientId,
+        client_secret: clientSecret,
+        redirect_uri: config.linkedin.redirectUri,
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+
+    this.accessToken = response.data.access_token;
+    this.accessTokenExpiry = Date.now() + (response.data.expires_in * 1000);
+    
+    return response.data;
+  }
+
   async getUserProfile(accessToken?: string): Promise<LinkedInProfile> {
     const token = accessToken ?? this.accessToken;
     
@@ -65,7 +70,6 @@ class LinkedInService {
     }
 
     try {
-      // Get basic profile information
       const profileResponse = await http.get(
         `${LINKEDIN_API_URL}/me?projection=(id,localizedFirstName,localizedLastName,profilePicture(displayImage~:playableStreams))`,
         {
@@ -75,7 +79,6 @@ class LinkedInService {
         }
       );
 
-      // Get user email address in a separate request
       const emailResponse = await http.get(
         `${LINKEDIN_API_URL}/emailAddress?q=members&projection=(elements*(handle~))`,
         {
@@ -103,12 +106,6 @@ class LinkedInService {
     }
   }
 
-  /**
-   * Search for jobs on LinkedIn
-   * @param params Search parameters
-   * @param accessToken LinkedIn access token
-   * @returns Job search results
-   */
   async searchJobs(params: LinkedInJobSearchParams, accessToken?: string): Promise<LinkedInJobSearchResponse> {
     const token = accessToken ?? this.accessToken;
     
@@ -117,7 +114,6 @@ class LinkedInService {
     }
 
     try {
-      // Using LinkedIn's Job Search API (Marketing Developer Platform)
       const response = await http.get(
         `${LINKEDIN_API_URL}/jobSearch`,
         {
@@ -134,8 +130,7 @@ class LinkedInService {
             count: params.count ?? 10,
             sortBy: params.sortBy ?? 'relevance',
             sortDirection: params.sortDirection ?? 'DESCENDING',
-            title: params.title, // Adicionando filtro por título
-            // Add more parameters as needed based on LinkedIn's API documentation
+            title: params.title,
           }
         }
       );
@@ -147,12 +142,6 @@ class LinkedInService {
     }
   }
 
-  /**
-   * Get details of a specific job on LinkedIn
-   * @param jobUrn LinkedIn job URN
-   * @param accessToken LinkedIn access token
-   * @returns Job details
-   */
   async getJobDetails(jobUrn: string, accessToken?: string): Promise<any> {
     const token = accessToken ?? this.accessToken;
     
@@ -161,7 +150,6 @@ class LinkedInService {
     }
 
     try {
-      // Format the URN if needed
       const formattedUrn = jobUrn.startsWith('urn:li:') ? jobUrn : `urn:li:job:${jobUrn}`;
       
       const response = await http.get(
@@ -180,11 +168,7 @@ class LinkedInService {
       throw new Error('Failed to fetch job details');
     }
   }
-
-  /**
-   * Check if the current access token is valid
-   * @returns boolean indicating if the token is valid
-   */
+  
   isAccessTokenValid(): boolean {
     return !!this.accessToken && Date.now() < this.accessTokenExpiry;
   }
