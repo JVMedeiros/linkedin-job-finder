@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn Job Finder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            background-color: #0077b5;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        h1, h2 {
+            margin-top: 0;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .search-panel {
+            flex: 1;
+            min-width: 300px;
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .results-panel {
+            flex: 2;
+            min-width: 300px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #0077b5;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #005582;
+        }
+        .job-card {
+            border: 1px solid #eee;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: #fff;
+            transition: transform 0.2s;
+        }
+        .job-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .job-title {
+            color: #0077b5;
+            margin-top: 0;
+        }
+        .company-name {
+            color: #666;
+            font-weight: bold;
+        }
+        .job-location {
+            color: #888;
+        }
+        .job-description {
+            margin-top: 10px;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        .error {
+            color: #cc0000;
+            background-color: #ffeeee;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>LinkedIn Job Finder</h1>
+        <p>Encontre as melhores oportunidades de emprego</p>
+    </header>
+
+    <div class="container">
+        <div class="search-panel">
+            <h2>Buscar Vagas</h2>
+            <div id="error-message" class="error"></div>
+            <form id="search-form">
+                <div class="form-group">
+                    <label for="keywords">Palavras-chave</label>
+                    <input type="text" id="keywords" name="keywords" placeholder="Ex: desenvolvedor, gerente">
+                </div>
+                <div class="form-group">
+                    <label for="title">Título da Vaga</label>
+                    <input type="text" id="title" name="title" placeholder="Ex: Desenvolvedor Node.js">
+                </div>
+                <div class="form-group">
+                    <label for="location">Localização</label>
+                    <input type="text" id="location" name="location" placeholder="Ex: São Paulo, Remoto">
+                </div>
+                <div class="form-group">
+                    <label for="job-type">Tipo de Trabalho</label>
+                    <select id="job-type" name="jobType">
+                        <option value="">Todos</option>
+                        <option value="FULL_TIME">Tempo Integral</option>
+                        <option value="PART_TIME">Meio Período</option>
+                        <option value="CONTRACT">Contrato</option>
+                        <option value="TEMPORARY">Temporário</option>
+                        <option value="VOLUNTEER">Voluntário</option>
+                        <option value="INTERNSHIP">Estágio</option>
+                    </select>
+                </div>
+                <button type="submit">Buscar</button>
+            </form>
+        </div>
+
+        <div class="results-panel">
+            <h2>Resultados</h2>
+            <div id="loading" class="loading">Carregando resultados...</div>
+            <div id="job-results"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchForm = document.getElementById('search-form');
+            const jobResults = document.getElementById('job-results');
+            const loadingIndicator = document.getElementById('loading');
+            const errorMessage = document.getElementById('error-message');
+
+            // Função para formatar data
+            function formatDate(timestamp) {
+                const date = new Date(timestamp);
+                return date.toLocaleDateString('pt-BR');
+            }
+
+            // Função para criar card de trabalho
+            function createJobCard(job) {
+                return `
+                    <div class="job-card">
+                        <h3 class="job-title">${job.title}</h3>
+                        <div class="company-name">${job.company?.name || 'Empresa não informada'}</div>
+                        <div class="job-location">${job.formattedLocation || 'Localização não informada'}</div>
+                        <div class="job-description">${job.description?.text || 'Sem descrição disponível'}</div>
+                        <p><strong>Nível:</strong> ${job.experienceLevel || 'Não informado'}</p>
+                        <p><strong>Tipo:</strong> ${job.workType || 'Não informado'}</p>
+                    </div>
+                `;
+            }
+
+            // Handler de submit do formulário
+            searchForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Mostra indicador de carregamento
+                loadingIndicator.style.display = 'block';
+                errorMessage.style.display = 'none';
+                jobResults.innerHTML = '';
+                
+                // Pega os valores do formulário
+                const formData = new FormData(searchForm);
+                const searchParams = new URLSearchParams();
+                
+                // Adiciona apenas os parâmetros não vazios
+                for (const [key, value] of formData.entries()) {
+                    if (value) {
+                        searchParams.append(key, value);
+                    }
+                }
+                
+                // Faz a requisição para a API de teste
+                fetch(`/test/jobs?${searchParams.toString()}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Erro ao buscar vagas');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        loadingIndicator.style.display = 'none';
+                        
+                        // Renderiza os resultados
+                        if (data.elements && data.elements.length > 0) {
+                            const jobsHtml = data.elements.map(job => createJobCard(job)).join('');
+                            jobResults.innerHTML = jobsHtml;
+                        } else {
+                            jobResults.innerHTML = '<p>Nenhuma vaga encontrada com os critérios informados.</p>';
+                        }
+                    })
+                    .catch(error => {
+                        loadingIndicator.style.display = 'none';
+                        errorMessage.textContent = error.message;
+                        errorMessage.style.display = 'block';
+                        console.error('Erro:', error);
+                    });
+            });
+        });
+    </script>
+</body>
+</html>
