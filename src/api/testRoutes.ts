@@ -8,7 +8,7 @@ const generateMockJobs = (query: any): LinkedInJobSearchResponse => {
   const title = query.title || '';
   const keywords = query.keywords || '';
   
-  // Criar alguns trabalhos falsos
+  // Mock Fake Jobs
   const mockJobs: LinkedInJob[] = [
     {
       entityUrn: 'urn:li:job:1',
@@ -72,7 +72,6 @@ const generateMockJobs = (query: any): LinkedInJobSearchResponse => {
     }
   ];
 
-  // Filtrar trabalhos se título estiver especificado
   let filteredJobs = [...mockJobs];
   
   if (title) {
@@ -99,7 +98,6 @@ const generateMockJobs = (query: any): LinkedInJobSearchResponse => {
   };
 };
 
-// Endpoint de teste para pesquisa de trabalhos
 const searchJobsHandler: RequestHandler = (req, res) => {
   const mockResponse = generateMockJobs(req.query);
   res.json(mockResponse);
@@ -107,7 +105,6 @@ const searchJobsHandler: RequestHandler = (req, res) => {
 
 router.get('/test/jobs', searchJobsHandler);
 
-// Endpoint de teste para detalhes de trabalho
 const jobDetailHandler: RequestHandler = (req, res) => {
   const jobId = req.params.id;
   const mockJobs = generateMockJobs({}).elements;
@@ -124,7 +121,6 @@ const jobDetailHandler: RequestHandler = (req, res) => {
 
 router.get('/test/jobs/:id', jobDetailHandler);
 
-// Endpoint de teste para verificação de saúde
 const healthCheckHandler: RequestHandler = (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 };
